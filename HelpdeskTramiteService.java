@@ -22,7 +22,7 @@ import br.com.appsotecnologia.soemp.models.helpdesk.HelpdeskChamado;
 import br.com.appsotecnologia.soemp.models.helpdesk.HelpdeskTramite;
 import br.com.appsotecnologia.soemp.models.helpdesk.dto.HelpdeskTramiteDto;
 import br.com.appsotecnologia.soemp.models.helpdesk.enums.StatusChamadoEnum;
-import br.com.appsotecnologia.soemp.repository.helpdesk.HelpdeskChamadoRepository;
+import br.com.appsotecnologia.soemp.service.helpdesk.HelpdeskChamadoService;
 import br.com.appsotecnologia.soemp.repository.helpdesk.HelpdeskTramiteRepository;
 import br.com.appsotecnologia.soemp.service.administracao.cadastro.UsuarioService;
 import br.com.appsotecnologia.soemp.service.arquivo.ArquivoService;
@@ -32,12 +32,11 @@ import lombok.AllArgsConstructor;
 @Service
 @AllArgsConstructor
 public class HelpdeskTramiteService {
-
 	@Autowired
 	private HelpdeskTramiteRepository helpdeskTramiteRepository;
 	
 	@Autowired
-	private HelpdeskChamadoRepository helpdeskChamadoRepository;
+	private HelpdeskChamadoService helpdeskChamadoService;
 	
 	@Autowired
 	private HelpdeskTramiteMapper helpdeskTramiteMapper;
@@ -47,7 +46,6 @@ public class HelpdeskTramiteService {
 	
 	@Autowired
 	private UsuarioService usuarioService;
-
 	public List<HelpdeskTramite> getAll() {
 		return helpdeskTramiteRepository.findAll();
 	}
@@ -55,9 +53,7 @@ public class HelpdeskTramiteService {
 	public List<HelpdeskTramiteDto> getAllDto() {
 		return helpdeskTramiteMapper.toDto(getAll());
 	}
-
 	public Page<HelpdeskTramiteDto> pesquisar(Pageable pageable) {
-
 		return helpdeskTramiteRepository.findAll(pageable).map(helpdeskTramiteMapper::toDto);
 	}
 	
@@ -72,9 +68,7 @@ public class HelpdeskTramiteService {
 		
 		return helpdeskTramiteDto;
 	}
-
 	public HelpdeskTramiteDto buscarPorId(Long id) {
-
 		Optional<HelpdeskTramite> optional = helpdeskTramiteRepository.findById(id);
 		if (optional.isPresent()) {
 			
@@ -83,22 +77,18 @@ public class HelpdeskTramiteService {
 			
 			return helpdeskTramiteDto;
 		}
-
 		return null;
 	}
 	
 	@Transactional
 	public HelpdeskTramiteDto editar(HelpdeskTramiteDto helpdeskTramiteDto, MultipartFile[] files) {
-
 		HelpdeskTramite helpdeskTramite = helpdeskTramiteRepository.save(helpdeskTramiteMapper.toEntity(helpdeskTramiteDto));
 		desativarArquivos(helpdeskTramiteDto);
 		anexarArquivos(helpdeskTramiteDto.getId(), files);
 		return helpdeskTramiteMapper.toDto(helpdeskTramite);
 	}
-
 	@Transactional
 	public HelpdeskTramiteDto incluir(HelpdeskTramiteDto helpdeskTramiteDto, MultipartFile[] files) {
-
 		if(helpdeskTramiteDto.getChamado().getStatus() == StatusChamadoEnum.FINALIZADO) {
 			throw new RuntimeException("O chamado já foi finalizado");
 		}
@@ -117,16 +107,14 @@ public class HelpdeskTramiteService {
 		desativarArquivos(helpdeskTramiteDto);
 		anexarArquivos(helpdeskTramite.getId(), files);
 		
-		Optional<HelpdeskChamado> optional = helpdeskChamadoRepository.findById(helpdeskTramite.getChamado().getId());
+		Optional<HelpdeskChamado> optional = helpdeskChamadoService.findById(helpdeskTramite.getChamado().getId());
 		if(optional.isPresent()) {
 			HelpdeskChamado helpdeskChamado = optional.get();
 			helpdeskChamado.setStatus(StatusChamadoEnum.AGUARDANDO_CLIENTE.getCodigo());
 		}
 		return helpdeskTramiteMapper.toDto(helpdeskTramite);
 	}
-
 	public void excluir(Long id) {
-
 		Optional<HelpdeskTramite> optional = helpdeskTramiteRepository.findById(id);
 		if (optional.isPresent()) {
 			HelpdeskTramite helpdeskTramite = optional.get();
@@ -135,10 +123,8 @@ public class HelpdeskTramiteService {
 	}
 	
 	public void excluir(HelpdeskTramite helpdeskTramite) {
-
 		helpdeskTramiteRepository.delete(helpdeskTramite);
 	}
-
 	public List<HelpdeskTramiteDto> getByHelpdeskChamadoId(Long idHelpdeskChamado) {
 		List<HelpdeskTramiteDto> tramites = helpdeskTramiteMapper.toDto(
 				helpdeskTramiteRepository.getAllByChamadoId(idHelpdeskChamado));
@@ -146,7 +132,6 @@ public class HelpdeskTramiteService {
 		for(HelpdeskTramiteDto tramite : tramites) {
 			tramite.setArquivos(arquivoService.getAnexosAtivos(ArquivoRegistroEnum.HELPDESK_TRAMITE, tramite.getId()));
 		}
-
 		return tramites;
 	}
 	
@@ -161,7 +146,7 @@ public class HelpdeskTramiteService {
 		desativarArquivos(helpdeskTramiteDto);
 		anexarArquivos(helpdeskTramite.getId(), files);
 		
-		Optional<HelpdeskChamado> optional = helpdeskChamadoRepository.findById(helpdeskTramite.getChamado().getId());
+		Optional<HelpdeskChamado> optional = helpdeskChamadoService.findById(helpdeskTramite.getChamado().getId());
 		if(optional.isPresent()) {
 			if(usuarioLogado.getPessoa() != null) {
 				HelpdeskChamado helpdeskChamado = optional.get();
@@ -176,13 +161,9 @@ public class HelpdeskTramiteService {
 	}
 	
 	private void anexarArquivos(Long id, MultipartFile... files) {
-
 		if (files != null && files.length > 0) {
-
 			for (MultipartFile file : files) {
-
 				String nameFile = StringUtils.cleanPath(file.getOriginalFilename());
-
 				try {
 					arquivoService.adicionarAnexo(ArquivoRegistroEnum.HELPDESK_TRAMITE, id, nameFile, file.getContentType(),
 							file.getInputStream());
@@ -190,10 +171,8 @@ public class HelpdeskTramiteService {
 					throw new NegocioException("Erro ao anexar os arquivos", e);
 				}
 			}
-
 		}
 	}
-
 	private void desativarArquivos(HelpdeskTramiteDto helpdeskTramiteDto) {
 		for (ArquivoDto arquivoDto : helpdeskTramiteDto.getArquivos()) {
 			if (!arquivoDto.isAtivo()) {
